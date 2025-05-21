@@ -32,11 +32,12 @@ type CartAction =
 interface CartContextType {
   items: CartItem[]
   isLoading: boolean
-  addItem: (product: Product, quantity: number) => void
+  addItem: (product: Product, quantity: number) => boolean
   removeItem: (id: string) => void
-  updateQuantity: (id: string, quantity: number) => void
+  updateQuantity: (id: string, quantity: number) => boolean
   clearCart: () => void
   getSubtotal: () => number
+  validateCart: () => { valid: boolean; message?: string }
 }
 
 // Create context
@@ -142,10 +143,33 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
-  // Add item to cart
+  // Add item to cart with validation
   const addItem = (product: Product, quantity: number) => {
+    // Validate quantity
+    if (quantity <= 0) {
+      toast.error("Quantity must be greater than zero")
+      return false
+    }
+
+    // Validate stock
+    if (product.stock <= 0) {
+      toast.error(`${product.name} is out of stock`)
+      return false
+    }
+
+    // Find existing item
+    const existingItem = state.items.find((item) => item.product._id === product._id)
+    const newQuantity = (existingItem?.quantity || 0) + quantity
+
+    // Check if adding this quantity would exceed available stock
+    if (newQuantity > product.stock) {
+      toast.error(`Cannot add ${quantity} more. Only ${product.stock - (existingItem?.quantity || 0)} available.`)
+      return false
+    }
+
     dispatch({ type: "ADD_ITEM", payload: { product, quantity } })
     toast.success(`${product.name} added to cart`)
+    return true
   }
 
   // Remove item from cart
@@ -153,9 +177,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: "REMOVE_ITEM", payload: { id } })
   }
 
-  // Update item quantity
+  // Update item quantity with validation
   const updateQuantity = (id: string, quantity: number) => {
+    // Validate quantity
+    if (quantity <= 0) {
+      toast.error("Quantity must be greater than zero")
+      return false
+    }
+
+    // Find the item
+    const item = state.items.find((item) => item.id === id)
+    if (!item) {
+      toast.error("Item not found in cart")
+      return false
+    }
+
+    // Check if the new quantity exceeds available stock
+    if (quantity > item.product.stock) {
+      toast.error(`Cannot set quantity to ${quantity}. Only ${item.product.stock} available.`)
+      return false
+    }
+
     dispatch({ type: "UPDATE_QUANTITY", payload: { id, quantity } })
+    return true
   }
 
   // Clear cart
@@ -168,6 +212,40 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return state.items.reduce((total, item) => total + item.price, 0)
   }
 
+  // Validate the entire cart
+  const validateCart = (): { valid: boolean; message?: string } => {
+    // Check if cart is empty
+    if (state.items.length === 0) {
+      return { valid: false, message: "Your cart is empty" }
+    }
+
+    // Check each item for stock availability
+    for (const item of state.items) {
+      if (item.quantity <= 0) {
+        return {
+          valid: false,
+          message: `Invalid quantity for ${item.product.name}`,
+        }
+      }
+
+      if (item.quantity > item.product.stock) {
+        return {
+          valid: false,
+          message: `Not enough stock for ${item.product.name}. Only ${item.product.stock} available.`,
+        }
+      }
+
+      if (item.product.stock <= 0) {
+        return {
+          valid: false,
+          message: `${item.product.name} is out of stock`,
+        }
+      }
+    }
+
+    return { valid: true }
+  }
+
   return (
     <CartContext.Provider
       value={{
@@ -178,6 +256,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateQuantity,
         clearCart,
         getSubtotal,
+        validateCart,
       }}
     >
       {children}

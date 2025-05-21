@@ -3,6 +3,7 @@
 import { useLogout, useUser } from "../hooks/useAuth"
 import { Menu } from "lucide-react"
 import { useState } from "react"
+import CartIcon from "./CartIcon"
 
 const Navbar = () => {
   const { data: user } = useUser()
@@ -23,6 +24,7 @@ const Navbar = () => {
 
           {/* Desktop menu */}
           <div className="hidden md:flex items-center gap-4">
+            <CartIcon />
             <div className="text-sm text-gray-600">
               Welcome, <span className="font-medium">{user?.username}</span>
             </div>
@@ -32,7 +34,8 @@ const Navbar = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center gap-4">
+            <CartIcon />
             <button
               className="p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               onClick={() => setIsMenuOpen(!isMenuOpen)}

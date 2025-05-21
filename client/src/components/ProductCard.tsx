@@ -1,10 +1,10 @@
-
+"use client"
 
 import { Link } from "react-router-dom"
-
 import { ShoppingCart } from "lucide-react"
 import type { Product } from "../types"
 import { useCart } from "../context/CartContext"
+import { toast } from "react-hot-toast"
 
 interface ProductCardProps {
   product: Product
@@ -14,6 +14,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const { addItem } = useCart()
 
   const handleAddToOrder = () => {
+    // Check if product is in stock before trying to add
+    if (product.stock <= 0) {
+      toast.error(`${product.name} is out of stock`)
+      return
+    }
+
     addItem(product, 1)
   }
 
@@ -45,10 +51,14 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <Link to={`/products/edit/${product._id}`} className="text-indigo-600 hover:text-indigo-800 text-sm">
             View Details
           </Link>
-         <button onClick={handleAddToOrder} className="btn btn-primary btn-sm flex items-center">
-           <ShoppingCart className="h-4 w-4 mr-1" />
-            Add to Order
-         </button>
+          <button
+            onClick={handleAddToOrder}
+            className="btn btn-primary btn-sm flex items-center"
+            disabled={product.stock <= 0}
+          >
+            <ShoppingCart className="h-4 w-4 mr-1" />
+            {product.stock <= 0 ? "Out of Stock" : "Add to Order"}
+          </button>
         </div>
       </div>
     </div>

@@ -1,133 +1,130 @@
-import type React from "react";
+"use client"
 
-import { useState } from "react";
-import {
-  useOrderItems,
-  useRemoveOrderItem,
-  useUpdateOrderItem,
-} from "../hooks/useOrderItems";
-import { useProducts } from "../hooks/useProducts";
-import { useApplyDiscount } from "../hooks/useDiscounts";
-import { useUser } from "../hooks/useAuth";
+import type React from "react"
 
-import {
-  Trash2,
-  ShoppingCart,
-  Tag,
-  Plus,
-  Minus,
-  CreditCard,
-  Banknote,
-} from "lucide-react";
-import LoadingSpinner from "../components/LoadingSpinner";
-import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
-import { useCreateOrder } from "../hooks/useOrder";
+import { useState } from "react"
+import { useAddToOrder } from "../hooks/useOrderItems"
+import { useApplyDiscount } from "../hooks/useDiscounts"
+import { useUser } from "../hooks/useAuth"
+
+import { Trash2, ShoppingCart, Tag, Plus, Minus, CreditCard, Banknote } from "lucide-react"
+import LoadingSpinner from "../components/LoadingSpinner"
+import toast from "react-hot-toast"
+import { useNavigate } from "react-router-dom"
+import { useCart } from "../context/CartContext"
+import { useCreateOrder } from "../hooks/useOrder"
 
 const OrderItems = () => {
-  const navigate = useNavigate();
-  const { data: user } = useUser();
-  const { data: orderItems, isLoading: isLoadingOrderItems } = useOrderItems();
-  const { data: products, isLoading: isLoadingProducts } = useProducts();
-  const removeOrderItem = useRemoveOrderItem();
-  const updateOrderItem = useUpdateOrderItem();
-  const applyDiscount = useApplyDiscount();
-  const createOrder = useCreateOrder();
+  const navigate = useNavigate()
+  const { data: user } = useUser()
+  const { items: cartItems, removeItem, updateQuantity, getSubtotal, clearCart, validateCart } = useCart()
+  const addToOrder = useAddToOrder()
+  const applyDiscount = useApplyDiscount()
+  const createOrder = useCreateOrder()
 
-  console.log(applyDiscount);
-
-  const [discountCode, setDiscountCode] = useState("");
-  const [appliedDiscount] = useState<{
-    code: string;
-    percentage: number;
-  } | null>(null);
-  const [paymentType, setPaymentType] = useState<"CASH" | "CARD">("CASH");
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [isPaid,setIsPaid]=useState(false)
-
-  if (isLoadingOrderItems || isLoadingProducts) {
-    return <LoadingSpinner />;
-  }
+  const [discountCode, setDiscountCode] = useState("")
+  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; percentage: number } | null>(null)
+  const [paymentType, setPaymentType] = useState<"CASH" | "CARD">("CASH")
+  const [isCheckingOut, setIsCheckingOut] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleRemoveItem = (id: string) => {
-    if (
-      window.confirm(
-        "Are you sure you want to remove this item from your order?"
-      )
-    ) {
-      removeOrderItem.mutate(id);
+    if (window.confirm("Are you sure you want to remove this item from your order?")) {
+      removeItem(id)
     }
-  };
+  }
 
-  console.log(products);
-
-  const handleUpdateQuantity = (
-    id: string,
-    currentQuantity: number,
-    change: number
-  ) => {
-    const newQuantity = currentQuantity + change;
+  const handleUpdateQuantity = (id: string, currentQuantity: number, change: number) => {
+    const newQuantity = currentQuantity + change
     if (newQuantity > 0) {
-      updateOrderItem.mutate({
-        id,
-        data: { quantity: newQuantity },
-      });
+      updateQuantity(id, newQuantity)
     }
-  };
+  }
 
-  // const handleApplyDiscount = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   if (discountCode.trim()) {
-  //     applyDiscount.mutate(discountCode, {
-  //       onSuccess: (data) => {
-  //         setAppliedDiscount({
-  //           code: discountCode,
-  //           percentage: data.data.percentage || 0,
-  //         });
-  //         toast.success(`Discount code ${discountCode} applied successfully!`);
-  //       },
-  //     });
-  //   }
-  // };
+  const handleApplyDiscount = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (discountCode.trim()) {
+      applyDiscount.mutate(discountCode, {
+        onSuccess: (data) => {
+          setAppliedDiscount({
+            code: discountCode,
+            percentage: data.data.percentage || 0,
+          })
+          toast.success(`Discount code ${discountCode} applied successfully!`)
+        },
+      })
+    }
+  }
 
-  const handleCheckout = () => {
-    if (!orderItems || orderItems.length === 0) {
-      toast.error("Your cart is empty");
-      return;
+  const handleCheckout = async () => {
+    // Validate the cart first
+    const validation = validateCart()
+    if (!validation.valid) {
+      toast.error(validation.message || "Your cart is invalid")
+      return
     }
 
     if (!user) {
-      toast.error("You must be logged in to checkout");
-      return;
+      toast.error("You must be logged in to checkout")
+      return
     }
 
-    setIsCheckingOut(true);
+    setIsCheckingOut(true)
+    setIsSubmitting(true)
 
-    const orderData = {
-      customer: user._id,
-      orderItems: orderItems.map((item) => item._id),
-      total: subtotal,
-      discountCode: discountCode,
-      paymentType,
-      isPaid
-    };
+    try {
+      // First, add all cart items to the server
+      const orderItemIds = []
 
-    createOrder.mutate(orderData, {
-      onSuccess: () => {
-        navigate("/orders");
-      },
-      onSettled: () => {
-        setIsCheckingOut(false);
-      },
-    });
-  };
+      for (const item of cartItems) {
+        const response = await addToOrder.mutateAsync({
+          product: item.product._id,
+          quantity: item.quantity,
+        })
+
+        if (response && response.data && response.data._id) {
+          orderItemIds.push(response.data._id)
+        }
+      }
+
+      if (orderItemIds.length === 0) {
+        throw new Error("Failed to create order items")
+      }
+
+      // Then create the order with the order item IDs
+      const orderData = {
+        customer: user._id,
+        orderItems: orderItemIds,
+        total: getSubtotal(),
+        discountCode: appliedDiscount?.code,
+        paymentType,
+      }
+
+      await createOrder.mutateAsync(orderData)
+
+      // Clear the cart after successful checkout
+      clearCart()
+
+      // Navigate to orders page
+      navigate("/orders")
+      toast.success("Order placed successfully!")
+    } catch (error) {
+      console.error("Checkout error:", error)
+      toast.error("Failed to complete checkout. Please try again.")
+    } finally {
+      setIsCheckingOut(false)
+      setIsSubmitting(false)
+    }
+  }
 
   // Calculate total
-  const subtotal = orderItems?.reduce((acc, item) => acc + item.price, 0) || 0;
-  const discountAmount = appliedDiscount
-    ? (subtotal * appliedDiscount.percentage) / 100
-    : 0;
-  const total = subtotal - discountAmount;
+  const subtotal = getSubtotal()
+  const discountAmount = appliedDiscount ? (subtotal * appliedDiscount.percentage) / 100 : 0
+  const total = subtotal - discountAmount
+
+  if (isSubmitting) {
+    return <LoadingSpinner />
+  }
 
   return (
     <div className="space-y-6">
@@ -135,7 +132,7 @@ const OrderItems = () => {
         <h1 className="text-2xl font-bold">Order Items</h1>
       </div>
 
-      {orderItems && orderItems.length > 0 ? (
+      {cartItems && cartItems.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Order Items List */}
           <div className="lg:col-span-2">
@@ -146,9 +143,9 @@ const OrderItems = () => {
               </h2>
 
               <div className="space-y-4">
-                {orderItems.map((item) => (
+                {cartItems.map((item) => (
                   <div
-                    key={item._id}
+                    key={item.id}
                     className="flex items-center border-b border-gray-200 pb-4 last:border-0 last:pb-0"
                   >
                     <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
@@ -165,31 +162,21 @@ const OrderItems = () => {
                         <p className="ml-4">${item.price.toFixed(2)}</p>
                       </div>
                       <p className="mt-1 text-sm text-gray-500">
-                        {typeof item.product.category === "object"
-                          ? item.product.category.name
-                          : item.product.category}
+                        {typeof item.product.category === "object" ? item.product.category.name : item.product.category}
                       </p>
 
                       <div className="flex items-center justify-between text-sm mt-2">
                         <div className="flex items-center border rounded-md">
                           <button
-                            onClick={() =>
-                              handleUpdateQuantity(item._id, item.quantity, -1)
-                            }
+                            onClick={() => handleUpdateQuantity(item.id, item.quantity, -1)}
                             className="px-2 py-1 text-gray-600 hover:text-gray-900"
-                            disabled={updateOrderItem.isPending}
                           >
                             <Minus className="h-4 w-4" />
                           </button>
-                          <span className="px-2 py-1 border-x">
-                            {item.quantity}
-                          </span>
+                          <span className="px-2 py-1 border-x">{item.quantity}</span>
                           <button
-                            onClick={() =>
-                              handleUpdateQuantity(item._id, item.quantity, 1)
-                            }
+                            onClick={() => handleUpdateQuantity(item.id, item.quantity, 1)}
                             className="px-2 py-1 text-gray-600 hover:text-gray-900"
-                            disabled={updateOrderItem.isPending}
                           >
                             <Plus className="h-4 w-4" />
                           </button>
@@ -198,8 +185,7 @@ const OrderItems = () => {
                         <button
                           type="button"
                           className="text-red-600 hover:text-red-800"
-                          onClick={() => handleRemoveItem(item._id)}
-                          disabled={removeOrderItem.isPending}
+                          onClick={() => handleRemoveItem(item.id)}
                         >
                           <Trash2 className="h-5 w-5" />
                         </button>
@@ -223,11 +209,8 @@ const OrderItems = () => {
                 </div>
 
                 {/* Discount Form */}
-                <form className="border-b border-gray-200 pb-4">
-                  <label
-                    htmlFor="discount-code"
-                    className="form-label flex items-center"
-                  >
+                <form onSubmit={handleApplyDiscount} className="border-b border-gray-200 pb-4">
+                  <label htmlFor="discount-code" className="form-label flex items-center">
                     <Tag className="h-4 w-4 mr-1" />
                     Discount Code
                   </label>
@@ -241,16 +224,19 @@ const OrderItems = () => {
                       placeholder="Enter code"
                       disabled={!!appliedDiscount}
                     />
+                    <button
+                      type="submit"
+                      className="btn btn-primary rounded-l-none"
+                      disabled={applyDiscount.isPending || !discountCode.trim() || !!appliedDiscount}
+                    >
+                      Apply
+                    </button>
                   </div>
-                  {/* {appliedDiscount && (
+                  {appliedDiscount && (
                     <div className="mt-2 text-sm text-green-600 flex items-center">
-                      <span className="font-medium">
-                        {appliedDiscount.code}
-                      </span>
+                      <span className="font-medium">{appliedDiscount.code}</span>
                       <span className="mx-1">-</span>
-                      <span>
-                        {appliedDiscount.percentage}% discount applied
-                      </span>
+                      <span>{appliedDiscount.percentage}% discount applied</span>
                       <button
                         type="button"
                         className="ml-2 text-red-600 hover:text-red-800"
@@ -259,7 +245,7 @@ const OrderItems = () => {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
-                  )} */}
+                  )}
                 </form>
 
                 {/* Payment Type Selection */}
@@ -301,29 +287,6 @@ const OrderItems = () => {
                   </div>
                 )}
 
-<div className="flex flex-col gap-2">
-  <label>
-    <input
-      type="radio"
-      name="isPaid"
-      value="true"
-      checked={isPaid === true}
-      onChange={() => setIsPaid(true)}
-    />
-    Paid
-  </label>
-  <label>
-    <input
-      type="radio"
-      name="isPaid"
-      value="false"
-      checked={isPaid === false}
-      onChange={() => setIsPaid(false)}
-    />
-    Unpaid
-  </label>
-</div>
-
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Total</span>
                   <span>${total.toFixed(2)}</span>
@@ -332,9 +295,7 @@ const OrderItems = () => {
                 <button
                   className="btn btn-primary w-full"
                   onClick={handleCheckout}
-                  disabled={
-                    isCheckingOut || !orderItems || orderItems.length === 0
-                  }
+                  disabled={isCheckingOut || !cartItems || cartItems.length === 0}
                 >
                   {isCheckingOut ? "Processing..." : "Proceed to Checkout"}
                 </button>
@@ -345,16 +306,12 @@ const OrderItems = () => {
       ) : (
         <div className="card text-center py-8">
           <ShoppingCart className="h-12 w-12 mx-auto text-gray-400" />
-          <h3 className="mt-4 text-lg font-medium text-gray-900">
-            Your order is empty
-          </h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Start adding products to your order
-          </p>
+          <h3 className="mt-4 text-lg font-medium text-gray-900">Your order is empty</h3>
+          <p className="mt-1 text-sm text-gray-500">Start adding products to your order</p>
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default OrderItems;
+export default OrderItems
