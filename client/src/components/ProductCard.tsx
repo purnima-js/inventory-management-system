@@ -1,22 +1,20 @@
-"use client"
+
 
 import { Link } from "react-router-dom"
-import { useAddToOrder } from "../hooks/useOrderItems"
+
 import { ShoppingCart } from "lucide-react"
 import type { Product } from "../types"
+import { useCart } from "../context/CartContext"
 
 interface ProductCardProps {
   product: Product
 }
 
 const ProductCard = ({ product }: ProductCardProps) => {
-  const addToOrder = useAddToOrder()
+  const { addItem } = useCart()
 
   const handleAddToOrder = () => {
-    addToOrder.mutate({
-      product: product._id,
-      quantity: 1,
-    })
+    addItem(product, 1)
   }
 
   return (
@@ -47,14 +45,10 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <Link to={`/products/edit/${product._id}`} className="text-indigo-600 hover:text-indigo-800 text-sm">
             View Details
           </Link>
-          <button
-            onClick={handleAddToOrder}
-            className="btn btn-primary btn-sm flex items-center"
-            disabled={addToOrder.isPending}
-          >
-            <ShoppingCart className="h-4 w-4 mr-1" />
+         <button onClick={handleAddToOrder} className="btn btn-primary btn-sm flex items-center">
+           <ShoppingCart className="h-4 w-4 mr-1" />
             Add to Order
-          </button>
+         </button>
         </div>
       </div>
     </div>
