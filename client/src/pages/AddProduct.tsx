@@ -66,7 +66,9 @@ const AddProduct = () => {
   }
 
   return (
-    <div className="space-y-6">
+    
+    <div className="min-h-screen flex  justify-center bg-gray-50 px-4">
+    <div className="space-y-6 w-full max-w-2xl">
       <div className="flex items-center gap-4">
         <Link to="/products" className="text-gray-500 hover:text-gray-700">
           <ArrowLeft className="h-5 w-5" />
@@ -74,7 +76,10 @@ const AddProduct = () => {
         <h1 className="text-2xl font-bold">Add Product</h1>
       </div>
 
-      <div className="card max-w-2xl">
+      <div className="card w-[800px] h-[600px] p-6 bg-white shadow-lg rounded-lg">
+       
+
+       
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div>
             <label htmlFor="name" className="form-label">
@@ -162,8 +167,10 @@ const AddProduct = () => {
             </button>
           </div>
         </form>
+           </div>
       </div>
-    </div>
+      </div>
+   
   )
 }
 

@@ -78,7 +78,9 @@ const getAllOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({})
     .populate("customer", "name email")
     .populate("orderItems")
-    .populate("discount");
+    .populate("discount")
+    .sort({ createdAt: -1 });
+
   res
     .status(200)
     .json(new ApiResponse(200, orders, "All orders fetched successfully"));
@@ -90,8 +92,14 @@ const getOrderById = asyncHandler(async (req, res) => {
   if (!orderId) throw new ApiError(400, "Order ID required");
   const order = await Order.findById(orderId)
     .populate("customer", "name email")
-    .populate("orderItems")
+     .populate({
+    path: "orderItems",
+    populate: {
+      path: "product",
+    },
+  })
     .populate("discount");
+  
   if (!order) throw new ApiError(404, "Order not found");
   res
     .status(200)

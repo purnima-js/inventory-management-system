@@ -1,10 +1,8 @@
-"use client"
 
-import type React from "react"
 
 import { useState } from "react"
 import { useAddToOrder } from "../hooks/useOrderItems"
-import { useApplyDiscount } from "../hooks/useDiscounts"
+
 import { useUser } from "../hooks/useAuth"
 
 import { Trash2, ShoppingCart, Tag, Plus, Minus, CreditCard, Banknote } from "lucide-react"
@@ -19,12 +17,13 @@ const OrderItems = () => {
   const { data: user } = useUser()
   const { items: cartItems, removeItem, updateQuantity, getSubtotal, clearCart, validateCart } = useCart()
   const addToOrder = useAddToOrder()
-  const applyDiscount = useApplyDiscount()
+
   const createOrder = useCreateOrder()
 
   const [discountCode, setDiscountCode] = useState("")
-  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; percentage: number } | null>(null)
+
   const [paymentType, setPaymentType] = useState<"CASH" | "CARD">("CASH")
+  const [ispaid,setIspaid] =useState(false)
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -41,20 +40,6 @@ const OrderItems = () => {
     }
   }
 
-  const handleApplyDiscount = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (discountCode.trim()) {
-      applyDiscount.mutate(discountCode, {
-        onSuccess: (data) => {
-          setAppliedDiscount({
-            code: discountCode,
-            percentage: data.data.percentage || 0,
-          })
-          toast.success(`Discount code ${discountCode} applied successfully!`)
-        },
-      })
-    }
-  }
 
   const handleCheckout = async () => {
     // Validate the cart first
@@ -96,21 +81,24 @@ const OrderItems = () => {
         customer: user._id,
         orderItems: orderItemIds,
         total: getSubtotal(),
-        discountCode: appliedDiscount?.code,
+        discountCode: discountCode,
         paymentType,
+        isPaid:ispaid
       }
 
       await createOrder.mutateAsync(orderData)
 
       // Clear the cart after successful checkout
       clearCart()
+      
+    
 
       // Navigate to orders page
       navigate("/orders")
       toast.success("Order placed successfully!")
     } catch (error) {
       console.error("Checkout error:", error)
-      toast.error("Failed to complete checkout. Please try again.")
+     
     } finally {
       setIsCheckingOut(false)
       setIsSubmitting(false)
@@ -119,8 +107,7 @@ const OrderItems = () => {
 
   // Calculate total
   const subtotal = getSubtotal()
-  const discountAmount = appliedDiscount ? (subtotal * appliedDiscount.percentage) / 100 : 0
-  const total = subtotal - discountAmount
+
 
   if (isSubmitting) {
     return <LoadingSpinner />
@@ -209,7 +196,7 @@ const OrderItems = () => {
                 </div>
 
                 {/* Discount Form */}
-                <form onSubmit={handleApplyDiscount} className="border-b border-gray-200 pb-4">
+                <div  className="border-b border-gray-200 pb-4">
                   <label htmlFor="discount-code" className="form-label flex items-center">
                     <Tag className="h-4 w-4 mr-1" />
                     Discount Code
@@ -222,35 +209,47 @@ const OrderItems = () => {
                       value={discountCode}
                       onChange={(e) => setDiscountCode(e.target.value)}
                       placeholder="Enter code"
-                      disabled={!!appliedDiscount}
+                      
                     />
-                    <button
-                      type="submit"
-                      className="btn btn-primary rounded-l-none"
-                      disabled={applyDiscount.isPending || !discountCode.trim() || !!appliedDiscount}
-                    >
-                      Apply
-                    </button>
+                   
                   </div>
-                  {appliedDiscount && (
-                    <div className="mt-2 text-sm text-green-600 flex items-center">
-                      <span className="font-medium">{appliedDiscount.code}</span>
-                      <span className="mx-1">-</span>
-                      <span>{appliedDiscount.percentage}% discount applied</span>
-                      <button
-                        type="button"
-                        className="ml-2 text-red-600 hover:text-red-800"
-                        onClick={() => setAppliedDiscount(null)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                </form>
+               
+                </div>
 
                 {/* Payment Type Selection */}
+              <div className="border-b border-gray-200 pb-4">
+  <div className="mt-2 space-y-2">
+    <label className="flex items-center space-x-2 cursor-pointer">
+      <input
+        type="radio"
+        name="payment"
+        value="paid"
+        checked={ispaid === true}
+        onChange={() => setIspaid(true)}
+        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+      />
+      <Banknote className="h-5 w-5 text-gray-500" />
+      <span>Paid</span>
+    </label>
+
+    <label className="flex items-center space-x-2 cursor-pointer">
+      <input
+        type="radio"
+        name="payment"
+        value="unpaid"
+        checked={ispaid === false}
+        onChange={() => setIspaid(false)}
+        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+      />
+      <CreditCard className="h-5 w-5 text-gray-500" />
+      <span>Unpaid</span>
+    </label>
+  </div>
+</div>
+
+
                 <div className="border-b border-gray-200 pb-4">
-                  <label className="form-label">Payment Method</label>
+                   <label className="form-label">Payment Method</label>
                   <div className="mt-2 space-y-2">
                     <label className="flex items-center space-x-2 cursor-pointer">
                       <input
@@ -279,17 +278,10 @@ const OrderItems = () => {
                   </div>
                 </div>
 
-                {/* Total with discount */}
-                {appliedDiscount && (
-                  <div className="flex justify-between text-sm">
-                    <span>Discount ({appliedDiscount.percentage}%)</span>
-                    <span>-${discountAmount.toFixed(2)}</span>
-                  </div>
-                )}
-
+           
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Total</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>${subtotal.toFixed(2)}</span>
                 </div>
 
                 <button

@@ -51,7 +51,8 @@ const EditCategory = () => {
   }
 
   return (
-    <div className="space-y-6">
+   <div className="min-h-screen flex  justify-center bg-gray-50 px-4">
+    <div className="space-y-6 w-full max-w-2xl">
       <div className="flex items-center gap-4">
         <Link to="/categories" className="text-gray-500 hover:text-gray-700">
           <ArrowLeft className="h-5 w-5" />
@@ -79,6 +80,7 @@ const EditCategory = () => {
           </div>
         </form>
       </div>
+    </div>
     </div>
   )
 }

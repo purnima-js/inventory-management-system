@@ -5,13 +5,17 @@ import { OrderItem } from "../models/orderItem.models.js";
 import { Product } from "../models/product.models.js";
 
 const addToOrderItem = asyncHandler(async (req, res) => {
-  const { quantity = 1, product: productId } = req.body;
+  const { quantity , product: productId } = req.body;
 
   const product = await Product.findById(productId);
 
   if (!product) {
     throw new ApiError(404, "Product not found");
   }
+
+  if (quantity < 1) {
+  throw new ApiError(400, "Quantity must be at least 1");
+}
 
   if (quantity > product.stock) {
     throw new ApiError(400, "Quantity exceeds stock");
@@ -24,24 +28,18 @@ const addToOrderItem = asyncHandler(async (req, res) => {
   let orderItem;
 
   if (!existingOrderItems) {
-    orderItem = await OrderItem.create({
-      owner: req.user._id,
-      product: productId,
-      quantity: quantity,
-      price: product.price * quantity,
-    });
-  } else {
-    const newQuantity = existingOrderItems.quantity + quantity;
-    const newPrice = product.price * newQuantity;
-
-    if (newQuantity > product.stock) {
-      throw new ApiError(400, "Quantity exceeds stock");
-    }
-
-    existingOrderItems.quantity = newQuantity;
-    existingOrderItems.price = newPrice;
-    orderItem = await existingOrderItems.save();
-  }
+  orderItem = await OrderItem.create({
+    owner: req.user._id,
+    product: productId,
+    quantity: quantity,
+    price: product.price * quantity,
+  });
+} else {
+  // SET instead of ADD
+  existingOrderItems.quantity = quantity;
+  existingOrderItems.price = product.price * quantity;
+  orderItem = await existingOrderItems.save();
+}
 
   await orderItem.populate("product");
 
