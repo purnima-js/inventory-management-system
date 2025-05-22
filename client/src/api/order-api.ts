@@ -30,3 +30,17 @@ export const deleteOrder = async (id: string): Promise<ApiResponse<Order>> => {
   const response = await axiosPrivate.delete(`/orders/delete/${id}`)
   return response.data
 }
+
+export interface UpdateOrderPayload {
+  status?: string;
+  isPaid?: boolean;
+  paymentId?: string;
+}
+
+export const updateOrder = async (
+  orderId: string,
+  data: UpdateOrderPayload
+): Promise<ApiResponse<Order>> => {
+  const response = await axiosPrivate.put(`/orders/update/${orderId}`, data);
+  return response.data;
+};

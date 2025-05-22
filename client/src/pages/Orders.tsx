@@ -3,8 +3,8 @@
 import { useState } from "react";
 import {
   useOrders,
-  // useUpdateOrderStatus,
-  // useUpdatePaymentStatus,
+  useUpdateOrder,
+
 } from "../hooks/useOrder";
 import { Link } from "react-router-dom";
 import {
@@ -14,20 +14,20 @@ import {
   Check,
   X,
   Eye,
-  Truck,
+
   Package,
-  CheckCircle,
+ 
   Trash
 } from "lucide-react";
 import LoadingSpinner from "../components/LoadingSpinner";
 import type { Order } from "../types";
 
 import { useDeleteOrder } from "../hooks/useOrder";
+
 const statusIcons = {
   PENDING: <Package className="h-5 w-5 text-yellow-500" />,
   CONFIRMED: <Check className="h-5 w-5 text-blue-500" />,
-  SHIPPED: <Truck className="h-5 w-5 text-purple-500" />,
-  DELIVERED: <CheckCircle className="h-5 w-5 text-green-500" />,
+ 
   CANCELLED: <X className="h-5 w-5 text-red-500" />,
 };
 
@@ -43,8 +43,8 @@ const statusColors = {
 
 const Orders = () => {
   const { data, isLoading } = useOrders();
-  // const updateOrderStatus = useUpdateOrderStatus();
-  // const updatePaymentStatus = useUpdatePaymentStatus();
+  const updateOrder = useUpdateOrder();
+
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -85,13 +85,13 @@ const handleDelete = (orderId: string) => {
     return matchesSearch && matchesStatus && matchesPayment;
   });
 
-  // const handleStatusChange = (orderId: string, newStatus: string) => {
-  //   updateOrderStatus.mutate({ id: orderId, status: newStatus });
-  // };
+  const handleStatusChange = (orderId: string, newStatus: string) => {
+    updateOrder.mutate({ id: orderId, data: {status:newStatus} });
+  };
 
-  // const handlePaymentStatusChange = (orderId: string, isPaid: boolean) => {
-  //   updatePaymentStatus.mutate({ id: orderId, isPaid });
-  // };
+  const handlePaymentStatusChange = (orderId: string, isPaid: boolean) => {
+    updateOrder.mutate({ id: orderId, data: {isPaid:isPaid} });
+  };
 
   return (
     <div className="space-y-6">
@@ -130,8 +130,7 @@ const handleDelete = (orderId: string) => {
               <option value="">All Statuses</option>
               <option value="PENDING">Pending</option>
               <option value="CONFIRMED">Confirmed</option>
-              <option value="SHIPPED">Shipped</option>
-              <option value="DELIVERED">Delivered</option>
+             
               <option value="CANCELLED">Cancelled</option>
             </select>
           </div>
@@ -208,43 +207,39 @@ const handleDelete = (orderId: string) => {
                     )}
                   </td>
                  <td className="px-6 py-4 whitespace-nowrap">
-  <div className="flex items-start">
-    <span
-      className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded 
-        ${statusColors[order.status as keyof typeof statusColors]} 
-        bg-opacity-10 text-opacity-90`}
-    >
-      {/* Optional status icon */}
-      {order.status === "PENDING" && (
-        <svg className="w-2.5 h-2.5 fill-current text-yellow-500" viewBox="0 0 8 8">
-          <circle cx="4" cy="4" r="4" />
-        </svg>
-      )}
-      {order.status === "CONFIRMED" && (
-        <svg className="w-2.5 h-2.5 fill-current text-green-500" viewBox="0 0 8 8">
-          <circle cx="4" cy="4" r="4" />
-        </svg>
-      )}
-      {order.status === "CANCELLED" && (
-        <svg className="w-2.5 h-2.5 fill-current text-red-500" viewBox="0 0 8 8">
-          <circle cx="4" cy="4" r="4" />
-        </svg>
-      )}
-      {order.status}
-    </span>
-  </div>
-</td>
+                    <select
+                      className={`text-xs font-medium px-2.5 py-1 rounded ${
+                        statusColors[order.status as keyof typeof statusColors]
+                      }`}
+                      value={order.status}
+                      onChange={(e) =>
+                        handleStatusChange(order._id, e.target.value)
+                      }
+                    >
+                      <option value="PENDING">Pending</option>
+                      <option value="CONFIRMED">Confirmed</option>
+                     
+                      <option value="CANCELLED">Cancelled</option>
+                    </select>
+                 </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span
+                 <select
                       className={`text-xs font-medium px-2.5 py-1 rounded ${
                         order.isPaid
                           ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
                       }`}
-                    
+                      value={order.isPaid ? "PAID" : "UNPAID"}
+                      onChange={(e) =>
+                        handlePaymentStatusChange(
+                          order._id,
+                          e.target.value === "PAID"
+                        )
+                      }
                     >
-                     {order.isPaid ? "Is Paid" : "Un Paid"}
-                    </span>
+                      <option value="PAID">Paid</option>
+                      <option value="UNPAID">Unpaid</option>
+                    </select>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex gap-2">
                     <Link

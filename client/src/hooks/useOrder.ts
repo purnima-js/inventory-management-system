@@ -5,6 +5,8 @@ import {
   deleteOrder,
   getAllOrders,
   getOrderById,
+  updateOrder,
+  UpdateOrderPayload,
   updateOrderStatus,
   updatePaymentStatus,
 } from "../api/order-api";
@@ -38,6 +40,22 @@ export const useCreateOrder = () => {
     },
     onError: (error: { message: string }) => {
       toast.error(error.message || "Failed to create order");
+    },
+  });
+};
+
+export const useUpdateOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateOrderPayload }) =>
+      updateOrder(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      toast.success("Order status updated successfully");
+    },
+    onError: (error: { message: string }) => {
+      toast.error(error.message || "Failed to update order status");
     },
   });
 };

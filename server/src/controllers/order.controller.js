@@ -42,6 +42,7 @@ const createOrder = asyncHandler(async (req, res) => {
     }
     discountedTotal = total - (total * discount.percentage) / 100;
   }
+  
 
   const order = await Order.create({
     total,
@@ -50,7 +51,7 @@ const createOrder = asyncHandler(async (req, res) => {
     discount: discount ? discount._id : null,
     paymentType,
     orderItems: orderItems.map((item) => item),
-    status: "CONFIRMED",
+    status: isPaid ? "CONFIRMED" : "PENDING",
     isPaid:isPaid ,
   });
 
